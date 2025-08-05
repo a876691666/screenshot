@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  screenshot-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.${ARCH}
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DOCKER_ENV=true
+      - CHROME_BIN=/usr/bin/chromium-browser
+    volumes:
+      - .:/app
+    networks:
+      - playwright-network
+
+networks:
+  playwright-network:
+    driver: bridge

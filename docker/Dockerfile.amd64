@@ -1,0 +1,10 @@
+FROM mcr.microsoft.com/playwright:v1.54.2-amd64
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install
+
+COPY . .
+
+CMD ["node", "dist/app.js"]
