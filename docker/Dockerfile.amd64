@@ -1,10 +1,42 @@
+# 构建阶段
+FROM mcr.microsoft.com/playwright:v1.54.2-amd64 AS builder
+
+WORKDIR /app
+
+# 复制包管理文件
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
+
+# 安装所有依赖（包括开发依赖）
+RUN npm install
+
+# 复制源代码和配置文件
+COPY src/ ./src/
+COPY tsconfig.json ./
+
+# 构建 TypeScript 代码
+RUN npm run build
+
+# 运行阶段
 FROM mcr.microsoft.com/playwright:v1.54.2-amd64
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm install
+# 复制包管理文件
+COPY package*.json ./
+COPY pnpm-lock.yaml ./
 
-COPY . .
+# 只安装生产依赖
+RUN npm install --only=production && npm cache clean --force
 
+# 从构建阶段复制编译后的代码
+COPY --from=builder /app/dist ./dist
+
+# 安装 Playwright 浏览器
+RUN npx playwright install chromium
+
+# 暴露端口
+EXPOSE 3000
+
+# 启动应用
 CMD ["node", "dist/app.js"]

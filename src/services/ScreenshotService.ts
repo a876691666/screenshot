@@ -1,34 +1,40 @@
-import { Browser, Page } from 'playwright';
+import { Browser, Page, chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { ScreenshotOptions } from '../types';
-import { Logger } from '../utils/logger';
+
+// Declare the global property for TypeScript
+declare global {
+    interface Window {
+        __threeJsReady?: boolean;
+    }
+}
 
 export class ScreenshotService {
     private browser: Browser | null = null;
     private isPlaywrightReady = false;
     private isShuttingDown = false;
-    private logger: Logger;
 
-    constructor(logger: Logger) {
-        this.logger = logger;
+    constructor() {
+        // 异步初始化 Playwright
+        this.initializePlaywright();
     }
 
     private async initializePlaywright(): Promise<void> {
         try {
-            this.logger.log('开始初始化 Playwright...');
+            console.log('开始初始化 Playwright...');
 
             const playwrightPath = this.getPlaywrightPath();
-            this.logger.log(`Playwright 路径: ${playwrightPath}`);
+            console.log(`Playwright 路径: ${playwrightPath}`);
 
             if (process.env.NODE_ENV === 'production' || process.env.DOCKER_ENV) {
                 await this.ensureBrowsersInstalled();
             }
 
             this.isPlaywrightReady = true;
-            this.logger.log('Playwright 初始化完成');
+            console.log('Playwright 初始化完成');
         } catch (error) {
-            this.logger.error('Playwright 初始化失败:', error);
+            console.error('Playwright 初始化失败:', error);
             this.isPlaywrightReady = false;
         }
     }
@@ -51,22 +57,22 @@ export class ScreenshotService {
 
             return 'playwright';
         } catch (error) {
-            this.logger.warn('无法确定 Playwright 路径:', error);
+            console.warn('无法确定 Playwright 路径:', error);
             return 'playwright';
         }
     }
 
     private async ensureBrowsersInstalled(): Promise<void> {
         try {
-            this.logger.log('检查浏览器安装状态...');
+            console.log('检查浏览器安装状态...');
             const testBrowser = await chromium.launch({
                 headless: true,
                 timeout: 10000
             });
             await testBrowser.close();
-            this.logger.log('浏览器验证成功');
+            console.log('浏览器验证成功');
         } catch (error) {
-            this.logger.error('浏览器验证失败，可能需要安装:', error);
+            console.error('浏览器验证失败，可能需要安装:', error);
             throw new Error('Playwright 浏览器未正确安装，请运行 npx playwright install chromium');
         }
     }
@@ -77,7 +83,7 @@ export class ScreenshotService {
         }
 
         if (!this.browser || !this.browser.isConnected()) {
-            this.logger.log('启动新的浏览器实例');
+            console.log('启动新的浏览器实例');
 
             const launchOptions = {
                 headless: true,
@@ -90,16 +96,16 @@ export class ScreenshotService {
             try {
                 this.browser = await chromium.launch(launchOptions);
             } catch (error) {
-                this.logger.error('浏览器启动失败:', error);
+                console.error('浏览器启动失败:', error);
                 if (!process.env.DOCKER_ENV) {
                     try {
-                        this.logger.log('尝试使用系统 Chrome...');
+                        console.log('尝试使用系统 Chrome...');
                         this.browser = await chromium.launch({
                             ...launchOptions,
                             channel: 'chrome'
                         });
                     } catch (fallbackError) {
-                        this.logger.error('系统 Chrome 启动也失败:', fallbackError);
+                        console.error('系统 Chrome 启动也失败:', fallbackError);
                         throw new Error('无法启动任何浏览器实例');
                     }
                 } else {
@@ -156,7 +162,7 @@ export class ScreenshotService {
             quality = 90
         } = options;
 
-        this.logger.log(`开始截图: ${url}`);
+        console.log(`开始截图: ${url}`);
 
         try {
             const browser = await this.getBrowser();
@@ -175,55 +181,55 @@ export class ScreenshotService {
 
                 page.on('request', (request) => {
                     requestCount++;
-                    this.logger.debug(`发起请求 #${requestCount}: ${request.url()}`);
+                    console.debug(`发起请求 #${requestCount}: ${request.url()}`);
                 });
 
                 page.on('response', (response) => {
                     responseCount++;
-                    this.logger.debug(`收到响应 #${responseCount}: ${response.url()} - ${response.status()}`);
+                    console.debug(`收到响应 #${responseCount}: ${response.url()} - ${response.status()}`);
                 });
 
                 page.on('pageerror', (error) => {
-                    this.logger.warn(`页面错误: ${error.message}`);
+                    console.warn(`页面错误: ${error.message}`);
                 });
 
                 page.on('console', (msg) => {
                     if (msg.type() === 'error') {
-                        this.logger.warn(`浏览器控制台错误: ${msg.text()}`);
+                        console.warn(`浏览器控制台错误: ${msg.text()}`);
                     }
                 });
 
-                this.logger.log(`正在加载页面: ${url}...`);
+                console.log(`正在加载页面: ${url}...`);
 
                 try {
                     await page.goto(url, {
                         waitUntil: 'domcontentloaded',
                         timeout: 60000
                     });
-                    this.logger.log('页面基本加载完成，等待网络空闲...');
+                    console.log('页面基本加载完成，等待网络空闲...');
                     await page.waitForLoadState('networkidle', { timeout: 120000 });
-                    this.logger.log('页面网络空闲完成');
-                } catch (error) {
-                    this.logger.warn(`页面加载出现问题: ${error.message}`);
+                    console.log('页面网络空闲完成');
+                } catch (error: any) {
+                    console.warn(`页面加载出现问题: ${error.message}`);
                     try {
                         await page.waitForLoadState('load', { timeout: 30000 });
-                        this.logger.log('页面基本加载完成（降级模式）');
-                    } catch (fallbackError) {
-                        this.logger.error(`页面加载完全失败: ${fallbackError.message}`);
+                        console.log('页面基本加载完成（降级模式）');
+                    } catch (fallbackError: any) {
+                        console.error(`页面加载完全失败: ${fallbackError.message}`);
                         throw new Error(`无法加载页面 ${url}: ${fallbackError.message}`);
                     }
                 }
 
-                this.logger.log('等待 iframe 加载完成...');
+                console.log('等待 iframe 加载完成...');
                 await this.waitForAllIframes(page);
 
                 if (waitForThreeJs) {
-                    this.logger.log('等待 Three.js 和 GLB 模型渲染完成...');
+                    console.log('等待 Three.js 和 GLB 模型渲染完成...');
                     await this.waitForThreeJsReady(page);
                 }
 
                 await page.waitForTimeout(2000);
-                this.logger.log('开始截图...');
+                console.log('开始截图...');
                 const screenshotOptions: any = {
                     fullPage,
                     type: format
@@ -234,17 +240,17 @@ export class ScreenshotService {
                 }
 
                 const screenshot = await page.screenshot(screenshotOptions);
-                this.logger.log(`截图完成，大小: ${screenshot.length} bytes`);
+                console.log(`截图完成，大小: ${screenshot.length} bytes`);
                 return screenshot;
 
-            } catch (error) {
-                this.logger.error(`截图失败: ${error.message}`, error.stack);
+            } catch (error: any) {
+                console.error(`截图失败: ${error.message}`, error.stack);
                 throw error;
             } finally {
                 await page.close();
             }
-        } catch (error) {
-            this.logger.error(`处理截图请求时出错: ${error.message}`, error.stack);
+        } catch (error: any) {
+            console.error(`处理截图请求时出错: ${error.message}`, error.stack);
             throw new Error(`无法处理截图请求: ${error.message}`);
         }
     }
@@ -258,8 +264,8 @@ export class ScreenshotService {
                         try {
                             await child.waitForLoadState('domcontentloaded', { timeout: 10000 });
                             await waitForNestedFrames(child);
-                        } catch (error) {
-                            this.logger.warn(`iframe 加载超时: ${error.message}`);
+                        } catch (error: any) {
+                            console.warn(`iframe 加载超时: ${error.message}`);
                         }
                     })
                 );
@@ -269,8 +275,8 @@ export class ScreenshotService {
         try {
             await waitForNestedFrames(page.mainFrame());
             await page.waitForLoadState('networkidle', { timeout: 15000 });
-        } catch (error) {
-            this.logger.warn(`等待 iframe 完成时出现警告: ${error.message}`);
+        } catch (error: any) {
+            console.warn(`等待 iframe 完成时出现警告: ${error.message}`);
         }
     }
 
@@ -442,10 +448,10 @@ export class ScreenshotService {
                 timeout: 600000
             });
 
-            this.logger.log('Three.js 和 GLB 模型检测完成');
+            console.log('Three.js 和 GLB 模型检测完成');
 
-        } catch (error) {
-            this.logger.warn(`Three.js 和模型等待超时，继续截图: ${error.message}`);
+        } catch (error: any) {
+            console.warn(`Three.js 和模型等待超时，继续截图: ${error.message}`);
         }
     }
 }

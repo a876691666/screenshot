@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  screenshot-service-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.${ARCH:-amd64}
+      target: builder  # 使用构建阶段，包含开发依赖
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DOCKER_ENV=true
+    volumes:
+      - ../src:/app/src:ro  # 挂载源代码（只读）
+      - ../dist:/app/dist   # 挂载编译输出目录
+    command: ["npm", "run", "dev"]  # 使用开发模式启动
+    networks:
+      - playwright-network
+    restart: unless-stopped
+
+networks:
+  playwright-network:
+    driver: bridge

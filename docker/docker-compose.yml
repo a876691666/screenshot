@@ -4,17 +4,17 @@ services:
   screenshot-service:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.${ARCH}
+      dockerfile: docker/Dockerfile.${ARCH:-amd64}
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
-      - CHROME_BIN=/usr/bin/chromium-browser
-    volumes:
-      - .:/app
+    # 移除 volumes 挂载，使用容器内构建的代码
+    # 如果需要开发模式，请创建单独的 docker-compose.dev.yml
     networks:
       - playwright-network
+    restart: unless-stopped
 
 networks:
   playwright-network:
